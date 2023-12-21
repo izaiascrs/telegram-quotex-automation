@@ -1,7 +1,6 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { Page, Protocol, executablePath } from 'puppeteer';
-import { cookies } from '../cookies';
+import { Page, executablePath } from 'puppeteer';
 import { TCurrencyPairs } from '../currencies';
 
 puppeteer.use(StealthPlugin());
@@ -14,6 +13,13 @@ export type TTimeKeys = keyof typeof TIME_OTC | keyof typeof TIME;
 type TTimeOTC = typeof TIME_OTC;
 type TTime = typeof TIME;
 type TTradeType = 'CALL' | 'PUT';
+
+const EMAIL = process.env.EMAIL
+const PASS = process.env.PASS
+
+const TWO_HOURS = (1000 * 60 * 60 * 2);
+
+export let QuotexPage: Page | null = null;
 
 const TIME_OTC = {
   '1 M': '01:00',
@@ -79,7 +85,7 @@ async function getBalance(page: Page) {
 }
 
 async function login(page: Page, email: string, password: string) {
-  await page.goto('https://qxbroker.com/pt/sign-in', { timeout: 0 });
+  await page.goto('https://qxbroker.com/pt/sign-in', { waitUntil: 'networkidle0' });
   await page.type("#tab-1 [type='email']", email)
   await page.type("#tab-1 [type='password']", password);
   page.evaluate(() => {
@@ -88,25 +94,83 @@ async function login(page: Page, email: string, password: string) {
   });
 }
 
+async function selectGrahTime(page: Page, time: string) {
+  await sleep(2000)
+  await page.evaluate((time) => {
+    const defaultTime = document.querySelector('div.trading-chart-settings__item:nth-child(3)') as HTMLDivElement;
+    defaultTime.click();
+    const allTimeFrames = Array.from(document.querySelectorAll('.popover-select__settings-time-item'));
+    const selectedTime =  allTimeFrames.find((t) => t.textContent === time) as HTMLDivElement;
+    selectedTime?.click()
+  }, time)
+}
+
 type TTradeParams = {
   currencyPair: TCurrencyPairs,
   time: TTimeKeys,
   amount: number,
-  type: TTradeType
+  type: TTradeType,
+  page: Page,
 }
 
-export async function tradeOnQuotex({ currencyPair, time, amount, type }: TTradeParams) {
-  const browser = await puppeteer.launch({ headless: 'new', executablePath: executablePath() });
+async function authorize(page: Page, num: number) {
+  console.log({num});  
+  await page.type('.auth__form .form__control [name="code"]', String(num));
+  page.evaluate(() => {
+    const btn = document.querySelector('.auth__form .auth__submit [type="submit"]') as HTMLButtonElement;
+    btn?.click()
+  });  
+}
+
+async function openQuotexPage() {
+  const browser = await puppeteer.launch({ headless: false, executablePath: executablePath(), args: ['--no-sandbox', '--disabled-setupid-sandbox'] });
   const page = await browser.newPage();
-  await page.setCookie(...cookies);
+  QuotexPage = page;
 
-  await page.goto('https://qxbroker.com/pt/demo-trade', { waitUntil: 'networkidle0' });
-  page.setDefaultNavigationTimeout(0);
+  const previousTab = await browser.pages();
+  await previousTab[0].close()  
 
-  await selectAsset(page, currencyPair);
+  await login(page, EMAIL!, PASS!);
+  await page.waitForNavigation();
+  await openTradePage(page);
+  await selectGrahTime(page, '5m');
+}
+
+export async function tradeOnQuotex({ page, currencyPair, time, amount, type }: TTradeParams) {
+  const selectedAsset = await page.$eval('.tab__label', (e) => e.textContent); 
+  
+  if(selectedAsset !== currencyPair) {
+    await selectAsset(page, currencyPair);
+  };
+
   await selectTime(page, time, TIME_OTC, TIME);
   await setTradeAmount(page, amount);
   await trade(page, type);
-  await browser.close();
-  console.log('trade completed browser closed');
+  console.log('trade completed sucessfully!');
 }
+
+async function openTradePage(page: Page | null) {
+  if(page) {
+    await page.goto('https://qxbroker.com/pt/demo-trade', { waitUntil: 'networkidle0' });
+  }
+}
+
+async function reloadPage(page: Page | null) {
+  if(page) {
+    await page.reload();
+    console.log(page.url());
+    if(page.url().includes('sign-in')) {
+      await login(page, EMAIL!, PASS!);
+      await page.waitForNavigation();
+      await openTradePage(page);
+      await selectGrahTime(page, '5m');
+    }
+  }
+}
+
+setInterval(async () => {
+  await reloadPage(QuotexPage);
+  console.log('reload page!');  
+}, TWO_HOURS);
+
+openQuotexPage();

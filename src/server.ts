@@ -18,8 +18,15 @@ import {
   extractDataFromMessage,
   isSticker
 } from './utils/handle-message';
-import { checkIfMessageIsFromDifferentChannel, findChannelById, findChannelBySignal, setChannelWaintingForSignal } from './utils/channels';
-import { type TTimeKeys, tradeOnQuotex } from './quotex';
+
+import { 
+  checkIfMessageIsFromDifferentChannel,
+  findChannelById,
+  findChannelBySignal,
+  setChannelWaintingForSignal
+} from './utils/channels';
+
+import { type TTimeKeys, tradeOnQuotex, QuotexPage } from './quotex';
 import { TCurrencyPairs } from './currencies';
 
 const SESSION_TOKEN = process.env.SESSION_TOKEN;
@@ -32,9 +39,8 @@ const stringSession = new StringSession(SESSION_TOKEN);
 
 const TEN_MINUTES = 1000 * 60 * 10;
 const MAX_TIME_TO_WATING_FOR_SIGNAL = TEN_MINUTES;
-const myId = 6018633227;
-
-const destinationList = [myId];
+const MY_ID = process.env.MY_ID
+const destinationList = [Number(MY_ID)];
 
 let signalTimeout: NodeJS.Timeout | null = null;
 
@@ -60,11 +66,9 @@ function clearSignalTimeout() {
     apiHash,
     { connectionRetries: 5 }
   );
-
+  
   await client.connect();
-  await client.getDialogs();
-  // const contacts = await listDialogs(client);
-  // console.log(contacts);
+  await client.getDialogs();  
 
   client.addEventHandler(async (event) => {
     const message = {
@@ -125,14 +129,16 @@ function clearSignalTimeout() {
                 setChannelWaintingForSignal(channelById.id, false);
                 clearSignalTimeout();
 
-                if (currencyPair && time && CALL_PUT_SIGNAL && hours.length === 0) {
-                  tradeOnQuotex({
-                    amount: 1,
-                    currencyPair: currencyPair as TCurrencyPairs,
-                    time: time as TTimeKeys,
-                    type: CALL_PUT_SIGNAL
-                  })
-
+                if (currencyPair && time && CALL_PUT_SIGNAL && hours.length === 0) {                  
+                  if(QuotexPage) {
+                    tradeOnQuotex({
+                      page: QuotexPage,
+                      amount: 10,
+                      currencyPair: currencyPair as TCurrencyPairs,
+                      time: time as TTimeKeys,
+                      type: CALL_PUT_SIGNAL
+                    })
+                  }
                   console.log({ time, currencyPair, CALL_PUT_SIGNAL });
                 }
               }
