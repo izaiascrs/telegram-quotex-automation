@@ -26,7 +26,7 @@ import {
   setChannelWaintingForSignal
 } from './utils/channels';
 
-import { type TTimeKeys, tradeOnQuotex, QuotexPage } from './quotex';
+import { type TTimeKeys, tradeOnQuotex, QuotexPage, tradeOnQuotexPending, TPendingTimers } from './quotex';
 import { TCurrencyPairs } from './currencies';
 
 const SESSION_TOKEN = process.env.SESSION_TOKEN;
@@ -68,7 +68,7 @@ function clearSignalTimeout() {
   );
   
   await client.connect();
-  await client.getDialogs();  
+  await client.getDialogs();
 
   client.addEventHandler(async (event) => {
     const message = {
@@ -101,6 +101,9 @@ function clearSignalTimeout() {
           } else {
             const { currencyPair, time, hours } = extractDataFromMessage(message.message);
 
+            console.log({currencyPair, time, hours});
+            
+
             if (currencyPair.length && time.length) {
               let signal: RegExpExecArray | null = null;
 
@@ -117,6 +120,21 @@ function clearSignalTimeout() {
                 setChannelWaintingForSignal(channelById.id, true);
                 createSignalTimeout();
               }
+
+              if(currencyPair.length && time.length && hours.length) {
+                if(QuotexPage && signal?.length) {
+                  const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);                  
+                  await tradeOnQuotexPending({ 
+                    page: QuotexPage,
+                    amount: 5,
+                    currencyPair: currencyPair as TCurrencyPairs,
+                    pendingTime: hours,
+                    time: time as TPendingTimers,
+                    type: CALL_PUT_SIGNAL 
+                  })
+                }
+              }
+              
             }
 
             const signal = checkIfMessageHasSignal(message.message);
@@ -129,18 +147,18 @@ function clearSignalTimeout() {
                 setChannelWaintingForSignal(channelById.id, false);
                 clearSignalTimeout();
 
-                if (currencyPair && time && CALL_PUT_SIGNAL && hours.length === 0) {                  
-                  if(QuotexPage) {
-                    tradeOnQuotex({
-                      page: QuotexPage,
-                      amount: 10,
-                      currencyPair: currencyPair as TCurrencyPairs,
-                      time: time as TTimeKeys,
-                      type: CALL_PUT_SIGNAL
-                    })
-                  }
-                  console.log({ time, currencyPair, CALL_PUT_SIGNAL });
-                }
+                // if (currencyPair && time && CALL_PUT_SIGNAL && hours.length === 0) {                  
+                //   if(QuotexPage) {
+                //     tradeOnQuotex({
+                //       page: QuotexPage,
+                //       amount: 10,
+                //       currencyPair: currencyPair as TCurrencyPairs,
+                //       time: time as TTimeKeys,
+                //       type: CALL_PUT_SIGNAL
+                //     })
+                //   }
+                //   console.log({ time, currencyPair, CALL_PUT_SIGNAL });
+                // }
               }
             }
           }

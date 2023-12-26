@@ -14,6 +14,7 @@
   "dependencies": {
     "dotenv": "^16.3.1",
     "input": "^1.0.1",
+    "node-cron": "^3.0.3",
     "nodemon": "^3.0.2",
     "puppeteer": "^21.6.1",
     "puppeteer-extra": "^3.3.6",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.3",
+    "@types/node-cron": "^3.0.11",
     "rimraf": "^5.0.5",
     "ts-node": "^10.9.1",
     "tsx": "^4.6.2",

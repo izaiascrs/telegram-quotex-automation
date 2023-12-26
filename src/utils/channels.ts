@@ -18,26 +18,38 @@ const channelsInfo: TchannelInfo[] = [
     waitingForSignal: false,
     type: 'Channel',
   },
-  {
-    id: -1002138548602,
-    name: 'Teste bot',
-    waitingForSignal: false,
-    type: 'Channel'
-  },
-  {
-    type: 'Channel',
-    id: -1002011222704,
-    name: 'Teste Bot 2',
-    waitingForSignal: false,
-  },
+  // {
+  //   id: -1002138548602,
+  //   name: 'Teste bot',
+  //   waitingForSignal: false,
+  //   type: 'Channel'
+  // },
+  // {
+  //   type: 'Channel',
+  //   id: -1002011222704,
+  //   name: 'Teste Bot 2',
+  //   waitingForSignal: false,
+  // },
 
   //************ official channels watch list ************//
   {
     type: 'Channel',
-    id:  -1001296434684,
-    name: 'Olymp Trade Quotex Signals',
+    id: -1001941369397,
+    name: '💰VIVA DE RENDA SINAIS OFICIAL 💰',
     waitingForSignal: false,
   },
+  {
+    type: 'Channel',
+    id:  -1001744454246,
+    name: '💰SINAIS TRADER MÁGICO💰',
+    waitingForSignal: false,
+  },
+  // {
+  //   type: 'Channel',
+  //   id:  -1001296434684,
+  //   name: 'Olymp Trade Quotex Signals',
+  //   waitingForSignal: false,
+  // },
   // {
   //   type: 'Channel',
   //   id: -1001695472706,
