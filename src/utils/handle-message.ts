@@ -54,7 +54,7 @@ export function createTradeSignalMessage(signal: 'CALL' | 'PUT') {
 export function extractDataFromMessage(msg: string) {
   const time = /\d\s?m/igm.exec(msg); // select digite followed by the m char
   const currencyPair = /\b[A-Z]{3}(?:\s|\/)[A-Z]{3}\b/g.exec(msg); // select 3 uppercase char followed by space or backslash followed 3 uppercase char  
-  const hours = /\d{2}:\d{2}/gm.exec(msg);
+  const hours = /(?<!-)\d{2}:\d{2}/gm.exec(msg);
 
   const timeCurrencyPair = {
     currencyPair: '',
@@ -91,9 +91,47 @@ export function extractDataFromMessage(msg: string) {
   }
 
   if (hours?.length) {
-    if (timeCurrencyPair.time !== '1 M') {
+    // if (timeCurrencyPair.time !== '1 M') {
       timeCurrencyPair.hours = hours[0];
-    }
+    // }
+  }
+
+  return timeCurrencyPair;
+}
+
+export function extractDataFromEspecialChannelMessage(msg: string) {
+  const time = /m\s?\d/gi.exec(msg); // M5 M 5
+  const currencyPair = /\b[A-Z]{6}\b.*/g.exec(msg); // select 3 uppercase char followed by space or backslash followed 3 uppercase char  
+  const hours = /(?<!-)\d{2}:\d{2}/gm.exec(msg);
+  const result = /resultado/gim.exec(msg);
+
+  const isOTC = (cPair: string) => /otc/gi.test(cPair);
+  const formatOTCPair = (otcPair: string) => otcPair.replace(/(-)(OTC)/gi, ' (OTC)')
+
+  const timeCurrencyPair = {
+    currencyPair: '',
+    time: '',
+    hours: '',
+  }
+
+  if(result?.length) return timeCurrencyPair;
+
+  if (time?.length) {
+    const formatedTime = time[0].split('').reverse().join(' ');
+    timeCurrencyPair.time = formatedTime;
+  }
+  
+  if (currencyPair?.length) {   
+    
+    const currencyPairWithSlash = currencyPair[0].replace(/(\w{3})/, '$1/');
+    const finalCurrencyPair = isOTC(currencyPair[0]) ? formatOTCPair(currencyPairWithSlash) : currencyPairWithSlash;
+    timeCurrencyPair.currencyPair = finalCurrencyPair;
+    
+     
+  }
+
+  if (hours?.length) {
+    timeCurrencyPair.hours = hours[0];
   }
 
   return timeCurrencyPair;

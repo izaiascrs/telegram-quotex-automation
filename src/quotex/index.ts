@@ -17,7 +17,6 @@ function formatDate(hours: string, minutes: string, seconds: string = '00') {
     hour: 'numeric',
     minute: 'numeric',
     second: 'numeric',
-    timeZone: 'America/Sao_Paulo',
   }
 
   const date = new Date();
@@ -25,7 +24,7 @@ function formatDate(hours: string, minutes: string, seconds: string = '00') {
   date.setHours(Number(hours));
   date.setMinutes(Number(minutes));
   date.setSeconds(Number(seconds));
-  const formater = new Intl.DateTimeFormat('pt-br', opt);
+  const formater = new Intl.DateTimeFormat('pt', opt);
 
   return formater.format(date);
 }
@@ -192,15 +191,7 @@ async function openQuotexPage() {
   await login(page, EMAIL!, PASS!);
   await page.waitForNavigation();
   await openTradePage(page);
-  await selectGrahTime(page, '5m');
-  // await tradeOnQuotexPending({ 
-  //   amount: 10,
-  //   currencyPair: 'BRLUSD',
-  //   pendingTime: '13:10',
-  //   page,
-  //   time: '5 M',
-  //   type: 'PUT'
-  // });
+  await selectGrahTime(page, '5m');  
 }
 
 export async function tradeOnQuotex({ page, currencyPair, time, amount, type }: TTradeParams) {

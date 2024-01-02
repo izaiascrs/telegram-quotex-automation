@@ -15,6 +15,7 @@ import {
   checkIfStickIsCallOrPut,
   createNewSignalMesage,
   createTradeSignalMessage,
+  extractDataFromEspecialChannelMessage,
   extractDataFromMessage,
   isSticker
 } from './utils/handle-message';
@@ -23,11 +24,14 @@ import {
   checkIfMessageIsFromDifferentChannel,
   findChannelById,
   findChannelBySignal,
+  isEspecialChannel,
   setChannelWaintingForSignal
 } from './utils/channels';
 
 import { type TTimeKeys, tradeOnQuotex, QuotexPage, tradeOnQuotexPending, TPendingTimers } from './quotex';
 import { TCurrencyPairs } from './currencies';
+import { getAssetId } from './iq-option';
+import { addToQueue } from './iq-option/queue';
 
 const SESSION_TOKEN = process.env.SESSION_TOKEN;
 const API_HASH = process.env.API_HASH;
@@ -48,7 +52,7 @@ function createSignalTimeout() {
   return signalTimeout = setTimeout(() => {
     console.log('reset signal');
     const channelBySignal = findChannelBySignal(true);
-    if (channelBySignal) setChannelWaintingForSignal(channelBySignal.id, false); //channelBySignal.waitingForSignal = false;
+    if (channelBySignal) setChannelWaintingForSignal(channelBySignal.id, false);
     clearSignalTimeout();
   }, MAX_TIME_TO_WATING_FOR_SIGNAL);
 }
@@ -69,6 +73,7 @@ function clearSignalTimeout() {
   
   await client.connect();
   await client.getDialogs();
+  
 
   client.addEventHandler(async (event) => {
     const message = {
@@ -81,104 +86,127 @@ function clearSignalTimeout() {
     }
 
     if (message.isChannel) {
+
       const channelById = findChannelById(message.chatId);
       const channelBySignal = findChannelBySignal(true);
 
       if (checkIfMessageIsFromDifferentChannel(channelById, channelBySignal)) return;
 
       if (channelById) {
-        if (message.message && message.message.length < 220) {
-          if (channelBySignal?.waitingForSignal) {
-            const signal = checkIfMessageHasSignal(message.message);
-            if (signal?.length) {
-              const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);
-              const CALL_PUT_MESSAGE = createTradeSignalMessage(CALL_PUT_SIGNAL);
-              const messageObj = { message: CALL_PUT_MESSAGE }
-              await sendMessagesToDestinationList(client, messageObj, destinationList);
-              setChannelWaintingForSignal(channelById.id, false);
-              clearSignalTimeout();
-            }
-          } else {
-            const { currencyPair, time, hours } = extractDataFromMessage(message.message);
 
-            console.log({currencyPair, time, hours});
+        if(isEspecialChannel(message.chatId)) {
+          const { currencyPair, hours, time } = extractDataFromEspecialChannelMessage(message.message); 
+          const signal = checkIfMessageHasSignal(message.message);
+          if (signal?.length) {
+            const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);
+            const assetId = getAssetId(currencyPair);        
+            if(assetId) {
+              console.log('job added to queue');              
+              addToQueue({
+                assetId: assetId,
+                direction: CALL_PUT_SIGNAL.toLocaleLowerCase() as 'call' | 'put',
+                expired: Number(time.split(' ')[0])! as 5 | 1,
+                price: 10,
+                time: hours.trim(),              
+              });
+            }
+          }
+
+          console.log({ currencyPair, hours, time }); 
+          
+        }
+        // if (message.message && message.message.length < 250) {
+        //   if (channelBySignal?.waitingForSignal) {
+        //     const signal = checkIfMessageHasSignal(message.message);
+        //     if (signal?.length) {
+        //       const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);
+        //       const CALL_PUT_MESSAGE = createTradeSignalMessage(CALL_PUT_SIGNAL);
+        //       const messageObj = { message: CALL_PUT_MESSAGE }
+        //       await sendMessagesToDestinationList(client, messageObj, destinationList);
+        //       setChannelWaintingForSignal(channelById.id, false);
+        //       clearSignalTimeout();
+        //     }
+        //   } else {
+        //     const { currencyPair, time, hours } = extractDataFromMessage(message.message);
+
             
 
-            if (currencyPair.length && time.length) {
-              let signal: RegExpExecArray | null = null;
+        //     if (currencyPair.length && time.length) {
+        //       let signal: RegExpExecArray | null = null;
 
-              if (hours.length > 0) {
-                signal = checkIfMessageHasSignal(message.message);
-              }
+        //       if (hours.length > 0) {
+        //         signal = checkIfMessageHasSignal(message.message);
+        //       }
 
-              const channelName = channelById.name;
-              const signalMessage = createNewSignalMesage({ currencyPair, time, hours, signal, channelName });
-              const messageObj = { message: signalMessage }
-              await sendMessagesToDestinationList(client, messageObj, destinationList);
-
-              if (signal === null || hours.length === 0) {
-                setChannelWaintingForSignal(channelById.id, true);
-                createSignalTimeout();
-              }
-
-              if(currencyPair.length && time.length && hours.length) {
-                if(QuotexPage && signal?.length) {
-                  const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);                  
-                  await tradeOnQuotexPending({ 
-                    page: QuotexPage,
-                    amount: 5,
-                    currencyPair: currencyPair as TCurrencyPairs,
-                    pendingTime: hours,
-                    time: time as TPendingTimers,
-                    type: CALL_PUT_SIGNAL 
-                  })
-                }
-              }
+        //       const channelName = channelById.name;
+        //       const signalMessage = createNewSignalMesage({ currencyPair, time, hours, signal, channelName });
+        //       const messageObj = { message: signalMessage }
               
-            }
+        //       await sendMessagesToDestinationList(client, messageObj, destinationList);
 
-            const signal = checkIfMessageHasSignal(message.message);
-            if (signal === null || hours.length === 0) {
-              if (signal?.length && channelById.waitingForSignal) {
-                const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);
-                const CALL_PUT_MESSAGE = createTradeSignalMessage(CALL_PUT_SIGNAL);
-                const messageObj = { message: CALL_PUT_MESSAGE }
-                await sendMessagesToDestinationList(client, messageObj, destinationList);
-                setChannelWaintingForSignal(channelById.id, false);
-                clearSignalTimeout();
+        //       if (signal === null || hours.length === 0) {
+        //         setChannelWaintingForSignal(channelById.id, true);
+        //         createSignalTimeout();
+        //       }
 
-                // if (currencyPair && time && CALL_PUT_SIGNAL && hours.length === 0) {                  
-                //   if(QuotexPage) {
-                //     tradeOnQuotex({
-                //       page: QuotexPage,
-                //       amount: 10,
-                //       currencyPair: currencyPair as TCurrencyPairs,
-                //       time: time as TTimeKeys,
-                //       type: CALL_PUT_SIGNAL
-                //     })
-                //   }
-                //   console.log({ time, currencyPair, CALL_PUT_SIGNAL });
-                // }
-              }
-            }
-          }
-        }
+        //       if(currencyPair.length && time.length && hours.length) {
+        //         if(QuotexPage && signal?.length) {
+        //           const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);                  
+        //           await tradeOnQuotexPending({ 
+        //             page: QuotexPage,
+        //             amount: 5,
+        //             currencyPair: currencyPair as TCurrencyPairs,
+        //             pendingTime: hours,
+        //             time: time as TPendingTimers,
+        //             type: CALL_PUT_SIGNAL 
+        //           })
+        //         }
+        //       }
+              
+        //     }
 
-        if (isSticker(message.media)) {
-          if (channelBySignal?.waitingForSignal) {
-            const isCallOrPut = checkIfStickIsCallOrPut(message.media as Api.MessageMediaDocument);
-            if (isCallOrPut) {
-              const CALL_PUT = createTradeSignalMessage(isCallOrPut);
-              const messageObj = { message: CALL_PUT }
-              await sendMessagesToDestinationList(client, messageObj, destinationList);
-              setChannelWaintingForSignal(channelById.id, false);
-              clearSignalTimeout();
-            }
-          }
-        }
+        //     const signal = checkIfMessageHasSignal(message.message);
+        //     if (signal === null || hours.length === 0) {
+        //       if (signal?.length && channelById.waitingForSignal) {
+        //         const CALL_PUT_SIGNAL = checkIfSignalMessageIsCallOrPut(signal[0]);
+        //         const CALL_PUT_MESSAGE = createTradeSignalMessage(CALL_PUT_SIGNAL);
+        //         const messageObj = { message: CALL_PUT_MESSAGE }
+        //         await sendMessagesToDestinationList(client, messageObj, destinationList);
+        //         setChannelWaintingForSignal(channelById.id, false);
+        //         clearSignalTimeout();
 
-        console.log(channelById?.waitingForSignal);
-        console.log(signalTimeout);
+        //         // if (currencyPair && time && CALL_PUT_SIGNAL && hours.length === 0) {                  
+        //         //   if(QuotexPage) {
+        //         //     tradeOnQuotex({
+        //         //       page: QuotexPage,
+        //         //       amount: 10,
+        //         //       currencyPair: currencyPair as TCurrencyPairs,
+        //         //       time: time as TTimeKeys,
+        //         //       type: CALL_PUT_SIGNAL
+        //         //     })
+        //         //   }
+        //         //   console.log({ time, currencyPair, CALL_PUT_SIGNAL });
+        //         // }
+        //       }
+        //     }
+        //   }
+        // }
+
+        // if (isSticker(message.media)) {
+        //   if (channelBySignal?.waitingForSignal) {
+        //     const isCallOrPut = checkIfStickIsCallOrPut(message.media as Api.MessageMediaDocument);
+        //     if (isCallOrPut) {
+        //       const CALL_PUT = createTradeSignalMessage(isCallOrPut);
+        //       const messageObj = { message: CALL_PUT }
+        //       await sendMessagesToDestinationList(client, messageObj, destinationList);
+        //       setChannelWaintingForSignal(channelById.id, false);
+        //       clearSignalTimeout();
+        //     }
+        //   }
+        // }
+
+        // console.log(channelById?.waitingForSignal);
+        // console.log(signalTimeout);
       }
     }
 

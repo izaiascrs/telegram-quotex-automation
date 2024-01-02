@@ -34,16 +34,28 @@ const channelsInfo: TchannelInfo[] = [
   //************ official channels watch list ************//
   {
     type: 'Channel',
-    id: -1001941369397,
-    name: '💰VIVA DE RENDA SINAIS OFICIAL 💰',
+    id:  -1001625871874,
+    name: 'SinaisOB - M1',
     waitingForSignal: false,
   },
   {
     type: 'Channel',
-    id:  -1001744454246,
-    name: '💰SINAIS TRADER MÁGICO💰',
+    id: -1001630460062,
+    name: 'SinaisOB - M5',
     waitingForSignal: false,
   },
+  // {
+  //   type: 'Channel',
+  //   id: -1001941369397,
+  //   name: '💰VIVA DE RENDA SINAIS OFICIAL 💰',
+  //   waitingForSignal: false,
+  // },
+  // {
+  //   type: 'Channel',
+  //   id: -1001744454246,
+  //   name: '💰SINAIS TRADER MÁGICO💰',
+  //   waitingForSignal: false,
+  // },
   // {
   //   type: 'Channel',
   //   id:  -1001296434684,
@@ -119,4 +131,9 @@ export function checkIfMessageIsFromDifferentChannel(
 export function setChannelWaintingForSignal(id: number, waiting: boolean) {
   const channel = channelsInfo.find((c) => c.id === id);
   if(channel) channel.waitingForSignal = waiting;
+}
+
+export function isEspecialChannel(id: number) {
+  const especialChannelsIds = [ -1001625871874 ]; // -1002137003427 || -1001630460062
+  return especialChannelsIds.find(c => c === id);
 }
